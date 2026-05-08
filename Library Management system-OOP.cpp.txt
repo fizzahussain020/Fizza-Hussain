@@ -1,0 +1,328 @@
+#include <iostream>
+using namespace std;
+
+const int MAX_RESOURCES = 50;
+const int MAX_MEMBERS = 20;
+const int MAX_BORROWED = 10;
+
+// ================= BASE CLASS =================
+class LibraryResource {
+protected:
+    int resourceID;
+    string title;
+    string author;
+    bool isAvailable;
+
+public:
+    LibraryResource() {}
+
+    LibraryResource(int id, string t, string a) {
+        this->resourceID = id;
+        this->title = t;
+        this->author = a;
+        this->isAvailable = true;   
+    }
+
+    void setAvailability(bool a) {
+        this->isAvailable = a;   
+    }
+
+    int getID() { return resourceID; }
+    bool getAvailability() { return isAvailable; }
+
+    virtual int calculateLateFee(int daysLate) {
+        return daysLate * 2;
+    }
+
+    virtual void displayDetails() {
+        cout << "ID: " << resourceID
+            << " Title: " << title
+            << " Author: " << author
+            << " Available: " << (isAvailable ? "Yes" : "No") << endl;
+    }
+
+    virtual ~LibraryResource() {}
+};
+
+class Book : public LibraryResource {
+    string ISBN;
+    int pages;
+
+public:
+    Book() {}
+
+    Book(int id, string t, string a, string isbn, int p)
+        : LibraryResource(id, t, a) {
+        ISBN = isbn;
+        pages = p;
+    }
+
+    int calculateLateFee(int daysLate) {
+        return daysLate * 5;
+    }
+
+    void displayDetails() {
+        LibraryResource::displayDetails();
+        cout << "ISBN: " << ISBN << " Pages: " << pages << endl;
+    }
+};
+
+class Magazine : public LibraryResource {
+    int issue;
+
+public:
+    Magazine() {}
+
+    Magazine(int id, string t, string a, int i)
+        : LibraryResource(id, t, a) {
+        issue = i;
+    }
+
+    int calculateLateFee(int daysLate) {
+        return daysLate * 3;
+    }
+
+    void displayDetails() {
+        LibraryResource::displayDetails();
+        cout << "Issue: " << issue << endl;
+    }
+};
+
+class DVD : public LibraryResource {
+    int duration;
+
+public:
+    DVD() {}
+
+    DVD(int id, string t, string a, int d)
+        : LibraryResource(id, t, a) {
+        duration = d;
+    }
+
+    int calculateLateFee(int daysLate) {
+        return daysLate * 10;
+    }
+
+    void displayDetails() {
+        LibraryResource::displayDetails();
+        cout << "Duration: " << duration << " min" << endl;
+    }
+};
+
+
+class LibraryMember {
+    int memberID;
+    string name;
+
+    LibraryResource borrowedItems[MAX_BORROWED];
+    int count;
+
+public:
+    LibraryMember() { count = 0; }
+
+    LibraryMember(int id, string n) {
+        memberID = id;
+        name = n;
+        count = 0;
+    }
+
+    int getID() { return memberID; }
+
+    string getName() { return name; }
+
+    void borrowResource(LibraryResource r) {
+        if (count >= MAX_BORROWED) {
+            cout << "Limit reached!\n";
+            return;
+        }
+
+        if (!r.getAvailability()) {
+            cout << "Already borrowed!\n";
+            return;
+        }
+
+        r.setAvailability(false);
+        borrowedItems[count++] = r;
+
+        cout << "Borrowed successfully!\n";
+    }
+
+    void returnResource(int id) {
+        for (int i = 0; i < count; i++) {
+            if (borrowedItems[i].getID() == id) {
+
+                borrowedItems[i].setAvailability(true);
+
+                for (int j = i; j < count - 1; j++) {
+                    borrowedItems[j] = borrowedItems[j + 1];
+                }
+
+                count--;
+                cout << "Returned successfully!\n";
+                return;
+            }
+        }
+        cout << "Not found!\n";
+    }
+
+    void displayBorrowedItems() {
+        cout << "\nBorrowed Items of " << name << ":\n";
+        for (int i = 0; i < count; i++) {
+            borrowedItems[i].displayDetails();
+        }
+    }
+
+    int calculateTotalLateFee(int daysLate) {
+        int total = 0;
+        for (int i = 0; i < count; i++) {
+            total += borrowedItems[i].calculateLateFee(daysLate);
+        }
+        return total;
+    }
+};
+
+
+class Library {
+public:
+    LibraryResource* resources[MAX_RESOURCES];
+    LibraryMember members[MAX_MEMBERS];
+
+    int resCount = 0;
+    int memCount = 0;
+
+    void addResource(LibraryResource* r) {
+        if (resCount < MAX_RESOURCES)
+            resources[resCount++] = r;
+    }
+
+    void addMember(LibraryMember m) {
+        if (memCount < MAX_MEMBERS)
+            members[memCount++] = m;
+    }
+
+    LibraryResource* findResource(int id) {
+        for (int i = 0; i < resCount; i++)
+            if (resources[i]->getID() == id)
+                return resources[i];
+        return NULL;
+    }
+
+    LibraryMember* findMember(int id) {
+        for (int i = 0; i < memCount; i++)
+            if (members[i].getID() == id)
+                return &members[i];
+        return NULL;
+    }
+
+    friend void adminView(Library& lib);
+};
+
+
+void adminView(Library& lib) {
+    cout << "\n===== ADMIN VIEW =====\n";
+
+    cout << "\nResources:\n";
+    for (int i = 0; i < lib.resCount; i++) {
+        lib.resources[i]->displayDetails();
+    }
+
+    cout << "\nMembers:\n";
+    for (int i = 0; i < lib.memCount; i++) {
+        cout << "ID: " << lib.members[i].getID()
+            << " Name: " << lib.members[i].getName() << endl;
+
+        lib.members[i].displayBorrowedItems();
+    }
+}
+
+
+int main() {
+    Library lib;
+    int choice;
+
+    do {
+        cout << "\n1.Add Resource\n2.Add Member\n3.Borrow\n4.Return\n5.Show Resources\n6.Show Member\n7.Late Fee\n8.Admin View\n9.Exit\n";
+        cin >> choice;
+
+        if (choice == 1) {
+            int id, type;
+            string t, a;
+
+            cin >> id >> t >> a;
+
+            cin >> type;
+
+            if (type == 1) {
+                string isbn; int p;
+                cin >> isbn >> p;
+                lib.addResource(new Book(id, t, a, isbn, p));
+            }
+            else if (type == 2) {
+                int issue;
+                cin >> issue;
+                lib.addResource(new Magazine(id, t, a, issue));
+            }
+            else {
+                int d;
+                cin >> d;
+                lib.addResource(new DVD(id, t, a, d));
+            }
+        }
+
+        else if (choice == 2) {
+            int id; string n;
+            cin >> id >> n;
+            lib.addMember(LibraryMember(id, n));
+        }
+
+        else if (choice == 3) {
+            int mid, rid;
+            cin >> mid >> rid;
+
+            LibraryMember* m = lib.findMember(mid);
+            LibraryResource* r = lib.findResource(rid);
+
+            if (m && r)
+                m->borrowResource(*r);
+        }
+
+        else if (choice == 4) {
+            int mid, rid;
+            cin >> mid >> rid;
+
+            LibraryMember* m = lib.findMember(mid);
+            if (m)
+                m->returnResource(rid);
+        }
+
+        else if (choice == 5) {
+            for (int i = 0; i < lib.resCount; i++)
+                lib.resources[i]->displayDetails();
+        }
+
+        else if (choice == 6) {
+            int id;
+            cin >> id;
+
+            LibraryMember* m = lib.findMember(id);
+            if (m)
+                m->displayBorrowedItems();
+        }
+
+        else if (choice == 7) {
+            int id, days;
+            cin >> id >> days;
+
+            LibraryMember* m = lib.findMember(id);
+            if (m)
+                cout << m->calculateTotalLateFee(days);
+        }
+
+        else if (choice == 8) {
+            adminView(lib);
+        }
+
+    } while (choice != 9);
+
+    return 0;
+}
